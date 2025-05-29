@@ -1,0 +1,6 @@
+useDynLib(StrataFinder, .registration=TRUE)
+import(Rcpp)
+import(RcppEigen)
+
+# export(strata_finder)
+export(StrataFinder)

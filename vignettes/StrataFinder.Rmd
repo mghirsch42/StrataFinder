@@ -1,0 +1,75 @@
+---
+title: "StrataFinder"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{StrataFinder}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(StrataFinder)
+```
+
+# Load data
+First, let's load some sample data. We will use data from Interochromis loock linkage group 5.
+This data has F_{ST} counts for 36,170,306 base pairs. Counts for each 100,000 base pairs are grouped together.
+
+```{r}
+# Load the data
+# df <- read.table("data/Interochromis_loock_LG5.txt", sep="\t")
+# head(df)
+```
+
+In order to predict the break points, we will use the index (base pair starting location divided by 100,000) as our $x$ values and the count as our $y$ values.
+
+```{r}
+# x <- as.integer(rownames(df))
+# y <- as.integer(df$V4)
+```
+
+# Estimate breakpoints
+
+Create a new StrataFinder object.
+
+```{r}
+sf <- new("StrataFinder")
+```
+
+To estimate the breakpoints, you will need to input the type of function you want to fit (either linear or exponential)
+and the minimum length each segment can be. Here, we will fit a linear function with a minimum length of 10.
+
+```{r}
+fit_type <- "linear"
+min_len = 10
+```
+
+If you already know how many breakpoints you need and would just like to estimate their location, you can use the findNStrata method.
+```{r}
+n_bp <- 2
+# sf$findNStrata(x, y, n_bp, fit_type, min_len)
+```
+
+If you don't know how many breakpoints you need, you can estimate both the number of breakpoints and their locations using the findStrata method.
+```{r}
+min_bps <- 0
+max_bps <- 2
+# sf$findStrata(x, y, fit_type, min_len, min_bps, max_bps)
+```
+
+There are two parts to the algorithm behind StrataFinder: estimating the sum squared residual matrix and identifying the breakpoints that minimize the total error.
+The methods findNStrata and findStrata will perform both steps.
+If you have a large dataset or will be testing multiple number of breakpoints you want to evaluate, you can precompute the sum squared residual matrix and input it into findStrata or findNStrata.
+This will reduce redundant computations and speed up run time.
+
+```{r}
+# ssr_mat <- sf$precomputeSSRMat(x, y, fit_type)
+# sf$findNStrata(x, y, n_bp, fit_type, min_len, ssr_mat)
+```
