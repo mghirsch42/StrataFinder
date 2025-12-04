@@ -20,7 +20,7 @@ StrataFinder <- setRefClass("StrataFinder",
         findNBreakpoints = function(n, quiet=FALSE) {
             # If the SSR matrix hasn't been computed yet, compute it
             if (is.null(ssr_mat)) {
-                ssr_mat <<- precompute_ssr_mat()
+                precomputeSSRMat()
             }
             # Run get_breakpoints C++ code to get the breakpoints and save the results
             start_time <- Sys.time()
@@ -48,7 +48,7 @@ StrataFinder <- setRefClass("StrataFinder",
             }
             # If the SSR matrix hasn't been computed yet, compute it
             if (is.null(ssr_mat)) {
-                ssr_mat <<- precompute_ssr_mat(x, y, fit_type)
+                precomputeSSRMat()
             }
             start_time <- Sys.time()
             # The we want to test for 0 breakpoints, only run peicewise regression and set breakpoints to 0
@@ -205,8 +205,14 @@ StrataFinder <- setRefClass("StrataFinder",
             else if (fit_type == "quadratic") {
                 fit_func <- function(x, intercept, coefs) intercept + coefs[1]*x + coefs[2]*x*x
             }
-            else {
+            else if (fit_type == "linear") {
                 fit_func <- function(x, intercept, coefs) intercept + coefs[1]*x
+            }
+            else if (fit_type == "flat") {
+                fit_func <- function(x, intercept, coefs) intercept
+            }
+            else {
+                print("Unknown fit type. Fit type may be flat, linear, exponential, or quadratic.")
             }
             # Get the equations and residuals
             reg <- piecewise_regression(x, y, bps_idxs, fit_type)

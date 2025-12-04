@@ -36,7 +36,7 @@ Rcpp::NumericVector transform_y(Rcpp::NumericVector y, std::string fit_type) {
 // @param y y values
 // @param intercept intercept value
 // @param coefs list of coefficient values, ordered from lowest power of x to highest
-// @param fit_type equation type to fit
+// @param fit_type equation type to fit. Can be exponential, quadratic, flat, 
 // @return a vector of the residuals for that segment
 std::vector<double> single_segment_residuals(std::vector<int> x, std::vector<double> y, double intercept, std::vector<double> coefs, std::string fit_type) {
     int n = x.size();   // Number of elements
@@ -47,6 +47,7 @@ std::vector<double> single_segment_residuals(std::vector<int> x, std::vector<dou
 
     // If fit_type is linear or exponential, coefs[0] is the coefficient to x
     // If fit_type is quadrative, coefs[0] is the coefficient to x, and coefs[1] is the coefficient to x^2
+    // If fit_type is flat, coefs is unused.
 
     // Calculate residuals at each index appropriately depending on the fit type
     for (int i=0; i<n; i++) {
@@ -56,8 +57,15 @@ std::vector<double> single_segment_residuals(std::vector<int> x, std::vector<dou
         else if (fit_type == "quadratic") {
             ypred = intercept + coefs[0]*x[i] + coefs[1]*x[i]*x[i];
         }
-        else {
+        else if (fit_type == "flat") {
+            ypred = intercept;
+        }
+        else if (fit_type == "linear") {
             ypred = intercept + coefs[0]*x[i];
+        }
+        else {
+            cout << "Unknown fit type. Fit type should be linear, flat, exponential, or quadratic." << endl;
+            exit(0);
         }
         residual = (y[i] - ypred) * (y[i] - ypred);
         if (isinf(residual)) {
@@ -100,8 +108,8 @@ std::tuple<double, std::vector<double>, std::vector<double>> single_segment_regr
 
 // Use matrix decomposition to estimate a linear function to fit the given data (used for linear and exponential fits)
 // @param x x values
-// @param y original y values
-// @param y_ transformed y values (log-transformed for exponential fits, the same as y for linear fits)
+// @param y original y values (used for residuals)
+// @param y_ transformed y values (log-transformed for exponential fits, the same as y for linear fits; used for equation estimation)
 std::tuple<double, std::vector<double>, std::vector<double>> single_segment_regression_linear(std::vector<int> x, std::vector<double> y, std::vector<double> y_, std::string fit_type) {
     int n = x.size();
     Eigen::MatrixXd X = Eigen::MatrixXd::Ones(n, 2); // First column is 1 for the coefficent, second column is each x value
@@ -126,9 +134,32 @@ std::tuple<double, std::vector<double>, std::vector<double>> single_segment_regr
     return results;
 }
 
+// Take the average value of the vector to be the intercept of a linear fit with zero slop.
+// @param x x values
+// @param y original y values
+// @param y_ transformed y values (log-transformed for exponential fits, the same as y for linear fits)
+std::tuple<double, std::vector<double>, std::vector<double>> single_segment_regression_flat(std::vector<int> x, std::vector<double> y) {
+    int n = x.size();
+
+    // The intercept is equal to the mean of the vector
+    double intercept = accumulate(y.begin(), y.end(), 0) / n;
+    // The coefficient is 0
+    std::vector<double> coefs = {0};
+    
+    // Get the residuals for this segment
+    std::vector<double> residuals = single_segment_residuals(x, y, intercept, coefs, "flat");
+
+    // Return the m, b, and the residuals
+    std::tuple<double, std::vector<double>, std::vector<double>> results {intercept, coefs, residuals};
+    return results;
+}
+
 std::tuple<double, std::vector<double>, std::vector<double>> single_segment_regression(std::vector<int> x, std::vector<double> y, std::vector<double> y_, std::string fit_type) {
     if (fit_type == "quadratic") {
         return single_segment_regression_quadratic(x, y, y_);
+    }
+    if (fit_type == "flat") {
+        return single_segment_regression_flat(x, y);
     }
     else {
         return single_segment_regression_linear(x, y, y_, fit_type);
@@ -293,7 +324,7 @@ std::vector<std::vector<double>> precompute_ssr_mat(Rcpp::IntegerVector x, Rcpp:
 // [[Rcpp::export]]
 Rcpp::List get_breakpoints(Rcpp::IntegerVector x, Rcpp::NumericVector y, int n_bp, std::string fit_type, int min_len, std::vector<std::vector<double>> ssr_mat) {
     if (ssr_mat.empty()) {
-        cout << "SSR matrix is not properly set. Call load_ssr or precompute_ssr before calling get_breakpoints." << endl;
+        cout << "SSR matrix is not properly set. Set ssr_mat or call precomputeSSRMat before calling get_breakpoints." << endl;
         return Rcpp::List::create();
     }
     else if (n_bp < 1) {
