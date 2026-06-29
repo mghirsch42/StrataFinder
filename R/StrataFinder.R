@@ -124,7 +124,7 @@ StrataFinder <- setRefClass("StrataFinder",
             if (test == "t") {
                 p <- t.test(abs(residuals1), abs(residuals2), var.equal=TRUE)$p.value
             } else if (test == "f") {
-                p <- var.test(abs(curr_residuals$residuals), abs(next_residuals$residuals))$p.value
+                p <- var.test(abs(residuals1), abs(residuals2))$p.value
             } else if (test == "either") {
                 p1 <- t.test(abs(residuals1), abs(residuals2), var.equal=TRUE)$p.value
                 p2 <- var.test(abs(residuals1), abs(residuals2))$p.value

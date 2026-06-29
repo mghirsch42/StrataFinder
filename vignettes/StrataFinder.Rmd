@@ -23,9 +23,10 @@ First, let's load some sample data. We will use data from Interochromis loock li
 This data has F_{ST} counts for 36,170,306 base pairs. Counts for each 100,000 base pairs are grouped together.
 
 ```{r}
-# Load the data
+Load the data
+data(example_data, package = "StrataFinder")
 # df <- read.table("data/Interochromis_loock_LG5.txt", sep="\t")
-# head(df)
+head(example_data)
 ```
 
 In order to predict the break points, we will use the index (base pair starting location divided by 100,000) as our $x$ values and the count as our $y$ values.
