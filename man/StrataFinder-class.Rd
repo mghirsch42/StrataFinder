@@ -4,13 +4,13 @@
 \name{StrataFinder-class}
 \alias{StrataFinder-class}
 \alias{StrataFinder}
-\title{Find a specified number of strata}
+\title{Precompute the sum squared residuals matrix}
 \arguments{
 \item{n}{number of breakpoings}
 
-\item{min_strata}{the minimum number of breakpoints to try}
+\item{min_bps}{the minimum number of breakpoints to try}
 
-\item{max_strata}{the maximum number of breakpoints to try}
+\item{max_bps}{the maximum number of breakpoints to try}
 
 \item{early_stop}{TRUE to exit once increasing the number of breakpoints does not lead to significantly different residuals. FALSE to run all possible breakpoint locations.}
 
@@ -25,13 +25,13 @@
 \item{show_error}{TRUE to show sum squared residual error, FALSE to just show breakpoints}
 }
 \value{
+the sum squared residual matrix
+Find a specified number of strata
+
 a named list with the breakpoints and their indices
 Find the number of breakpoints and their location that best fit the data
 
 a named list with the best number of breakpoints, their locations, and their indices
-Precompute the sum squared residuals matrix
-
-the sum squared residual matrix
 Perform a statistical comparison between the two sets of residuals
 
 the p-value of the statistical test (in the case of "either, this is the lower p-value of the two tests, in the case of "both", this is the higher p-value of the two tests)
@@ -49,6 +49,6 @@ Plot the data with the current saved breakpoints and fit type
 a ggplot2 plot object
 }
 \description{
-Find a specified number of strata
+Precompute the sum squared residuals matrix
 }
 

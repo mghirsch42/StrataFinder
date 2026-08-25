@@ -13,6 +13,12 @@ StrataFinder <- setRefClass("StrataFinder",
         bps = "numeric"
     ),
     methods = list (
+        #' Precompute the sum squared residuals matrix
+        #' @return the sum squared residual matrix
+        precomputeSSRMat = function() {
+            ssr_mat <<- precompute_ssr_mat(x, y, fit_type)
+            return (invisible(ssr_mat))
+        },
         #' Find a specified number of strata
         #' @param n number of breakpoings
         #' @param quiet whether or not to print updates
@@ -20,7 +26,8 @@ StrataFinder <- setRefClass("StrataFinder",
         findNBreakpoints = function(n, quiet=FALSE) {
             # If the SSR matrix hasn't been computed yet, compute it
             if (is.null(ssr_mat)) {
-                precomputeSSRMat()
+                print("The SSR matrix is not properly set. Set ssr_mat or call precomputeSSRMat() before calling get_breakpoints. Remember to also recompute the SSR matrix when changing the fit type or minimum segment length.")
+                return()
             }
             # Run get_breakpoints C++ code to get the breakpoints and save the results
             start_time <- Sys.time()
@@ -29,44 +36,51 @@ StrataFinder <- setRefClass("StrataFinder",
             bps <<- x[bps_idxs]
             end_time <- Sys.time()
             if (!quiet) {
-                print(paste("Breakpoints:", bps))
-                print(paste("Time taken:", difftime(end_time, start_time, units="secs")[[1]], "seconds"))
+                print(paste("Breakpoints:", toString(bps)))
+                print(paste("Time taken:", round(difftime(end_time, start_time, units="secs")[[1]], 4), "seconds"))
             }
             return (invisible(list("bps"=list(bps), "bps_idxs"=list(bps_idxs))))
         },
         #' Find the number of breakpoints and their location that best fit the data
-        #' @param min_strata the minimum number of breakpoints to try
-        #' @param max_strata the maximum number of breakpoints to try
+        #' @param min_bps the minimum number of breakpoints to try
+        #' @param max_bps the maximum number of breakpoints to try
         #' @param test they type of statistical test to do to compare the number of breakpoints (t, f, both, or either)
         #' @param early_stop TRUE to exit once increasing the number of breakpoints does not lead to significantly different residuals. FALSE to run all possible breakpoint locations.
         #' @param quiet TRUE to not print any updates, FALSE to print updates
         #' @return a named list with the best number of breakpoints, their locations, and their indices
-        findBreakpoints = function(min_strata, max_strata, test="t", early_stop=TRUE, quiet=FALSE) {
+        findBreakpoints = function(min_bps, max_bps, test="t", early_stop=TRUE, quiet=FALSE) {
+            print("1")
             # If the minimum length isn't set, exit
             if (is.null(min_len)){
                 print("min_len is not set. Exiting.")
+                return()
             }
             # If the SSR matrix hasn't been computed yet, compute it
             if (is.null(ssr_mat)) {
-                precomputeSSRMat()
+                print("The SSR matrix is not properly set. Set ssr_mat or call precomputeSSRMat() before calling get_breakpoints. Remember to also recompute the SSR matrix when changing the fit type or minimum segment length.")
+                return()
+            }
+            if (!fit_type %in% c("flat", "linear", "exponential", "quadratic")) {
+                print("Unknown fit type. Fit type should be flat, linear, exponential, or quadratic.")
+                return()
             }
             start_time <- Sys.time()
             # The we want to test for 0 breakpoints, only run peicewise regression and set breakpoints to 0
-            if (min_strata == 0) {
+            if (min_bps == 0) {
                 curr_residuals <- piecewise_regression(x, y, numeric(0), fit_type)
                 best_n <- 0
                 best_bps <- as.numeric(c())
             }
             # Otherwise, do an initial run getting breakpoints and running piecewise regression with those breakpoints
             else {
-                curr_results <- get_breakpoints(x, y, min_strata, fit_type, min_len, ssr_mat)
+                curr_results <- get_breakpoints(x, y, min_bps, fit_type, min_len, ssr_mat)
                 curr_residuals <- piecewise_regression(x, y, curr_results$bps+1, fit_type)
-                best_n <- min_strata
+                best_n <- min_bps
                 best_bps <- curr_results$bps
             }
             # Loop up to the maximum number of breakpoints
             stop_flag <- FALSE
-            for (n in min_strata+1:max_strata) {
+            for (n in min_bps+1:max_bps) {
                 # Get the breakpoints and run piecewise regression
                 next_results <- get_breakpoints(x, y, n, fit_type, min_len, ssr_mat)
                 next_residuals <- piecewise_regression(x, y, next_results$bps+1, fit_type)
@@ -87,33 +101,20 @@ StrataFinder <- setRefClass("StrataFinder",
                 else {
                     stop_flag <- TRUE
                     if (early_stop) {
-                        end_time <- Sys.time()
-                        bps_idxs <<- best_bps+1 # Add 1 to convert C++ indexing to R indexing
-                        bps <<- x[bps_idxs]
-                        if (!quiet) {
-                            print(paste("Best number of breakpoints:", best_n))
-                            print(paste("Breakpoints:", bps))
-                            print(paste("Time taken:", difftime(end_time, start_time, units="secs"), "seconds"))
-                        }
-                        return (invisible(list("n_bps"=best_n, "bps"=list(bps), "bps_idxs"=list(bps_idxs))))
+                        break
                     }
                 }
             }
             end_time <- Sys.time()
             if (!quiet) {
+                print("------------------------------")
                 print(paste("Best number of breakpoints:", best_n))
-                print(paste("Breakpoints:", bps))
-                print(paste("Time taken:", difftime(end_time, start_time, units="secs"), "seconds"))
+                print(paste("Breakpoints:", toString(best_bps)))
+                print(paste("Time taken:", round(difftime(end_time, start_time, units="secs"), 4), "seconds"))
             }
-            bps_idxs <<- best_bps+1 # Add 1 to convert C++ indexing to R indexing
+            bps_idxs <<- best_bps
             bps <<- x[bps_idxs]
             return (invisible(list("n_bps"=best_n, "bps"=list(bps), "bps_idxs"=list(bps_idxs))))
-        },
-        #' Precompute the sum squared residuals matrix
-        #' @return the sum squared residual matrix
-        precomputeSSRMat = function() {
-            ssr_mat <<- precompute_ssr_mat(x, y, fit_type)
-            return (invisible(ssr_mat))
         },
         #' Perform a statistical comparison between the two sets of residuals
         #' @param residuals1 the first set of residuals to compare
@@ -229,21 +230,21 @@ StrataFinder <- setRefClass("StrataFinder",
 
             # Plot the data points
             plt <- ggplot()
-            plt <- plt + geom_point(aes(x=x, y=y), size=0.01)
+            plt <- plt + geom_point(aes(x=x, y=y), size=0.5) 
             plt <- plt + xlim(0, max(x)) + xlab("") + ylab("") 
 
             # If we have breakpoints, plot them
             if (length(bps) > 0) {
                 # Plot the breakpoints
-                plt <- plt + geom_vline(xintercept=bps, color="blue")
+                plt <- plt + geom_vline(xintercept=bps, color="blue", linetype="dashed", linewidth=.75)
                 
                 # Plot the functions
                 for (i in 1:length(bps)) {
                     if (i == 1) { xm = 0 } else {xm = bps[i-1]}
-                        plt <- plt + geom_function(fun = fit_func, xlim=c(xm, bps[i]), args=c(reg$intercepts[i], reg$coefs[i]), color="blue")
+                        plt <- plt + geom_function(fun = fit_func, xlim=c(xm, bps[i]), args=c(reg$intercepts[i], reg$coefs[i]), color="blue", linewidth=0.5)
                 }
-                plt <- plt + geom_function(fun = fit_func, xlim=c(bps[length(bps)],x[length(x)]), args=c(reg$intercepts[length(reg$intercepts)], reg$coefs[length(reg$coefs)] ), color="blue")
-
+                plt <- plt + geom_function(fun = fit_func, xlim=c(bps[length(bps)],x[length(x)]), args=c(reg$intercepts[length(reg$intercepts)], reg$coefs[length(reg$coefs)] ), color="blue", linewidth=0.5)
+                
                 if (show_error) {
                     # Add boundary boxes to the main plot
                     plt_ranges <- ggplot_build(plt)$layout$panel_params[[1]]$y.range
@@ -251,9 +252,9 @@ StrataFinder <- setRefClass("StrataFinder",
 
                     # Create SSR plot
                     plt2 <- ggplot() + xlim(0, max(x))
-                    plt2 <- plt2 + geom_point(data=ssrs, aes(x=x, y=y), size=0.5)
+                    plt2 <- plt2 + geom_point(data=ssrs, aes(x=x, y=y), size=0.01)
                     plt2 <- plt2 + geom_vline(xintercept=bps, color="blue")
-                    plt2 <- plt2 + xlab("") + ylab("") + scale_y_continuous(labels=scientific)
+                    plt2 <- plt2 + xlab("") + ylab("")# + scale_y_continuous(labels="scientific")
                     plt2 <- plt2 + geom_rect(aes(xmin=bounds$bounds$bp_min, xmax=bounds$bounds$bp_max, ymin=-Inf, ymax=Inf), alpha=0.25)
                     plt <- plt + coord_cartesian(xlim=c(0,max(x))) 
                     plt2 <- plt2 + coord_cartesian(xlim=c(0,max(x)))

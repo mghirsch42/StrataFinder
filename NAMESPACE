@@ -1,6 +1,8 @@
 useDynLib(StrataFinder, .registration=TRUE)
 import(Rcpp)
 import(RcppEigen)
+import(ggplot2)
+import(patchwork)
+import(gridExtra)
 
-# export(strata_finder)
 export(StrataFinder)

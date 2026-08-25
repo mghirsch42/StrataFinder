@@ -1,16 +1,14 @@
 Package: StrataFinder
 Type: Package
-Title: What the Package Does in One 'Title Case' Line
+Title: Identify strata breakpoints in sex chromosomes
 Version: 1.0
-Date: 2024-04-24
-Author: Your Name
-Maintainer: Your Name <your@email.com>
-Description: One paragraph description of what the package does as one
-        or more full sentences.
+Date: 2026-08-25
+Author: MG Hirsch
+Maintainer: MG Hirsch <hirschmg42@gmail.com>
+Description: 
 License: GPL (>= 2)
-Imports: Rcpp (>= 1.0.12), RcppEigen (>= 0.3.4)
+Imports: Rcpp (>= 1.0.12), RcppEigen (>= 0.3.4), ggplot2, patchwork, gridExtra
 LinkingTo: Rcpp, RcppEigen
-RoxygenNote: 7.3.3
 Suggests: 
     knitr,
     rmarkdown
@@ -18,3 +16,5 @@ VignetteBuilder: knitr
 Depends: 
     R (>= 3.5)
 LazyData: true
+Config/roxygen2/version: 8.0.0
+RoxygenNote: 7.3.3

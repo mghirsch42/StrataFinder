@@ -64,8 +64,9 @@ std::vector<double> single_segment_residuals(std::vector<int> x, std::vector<dou
             ypred = intercept + coefs[0]*x[i];
         }
         else {
-            cout << "Unknown fit type. Fit type should be linear, flat, exponential, or quadratic." << endl;
-            exit(0);
+            cout << "Unknown fit type. Fit type should be flat, linear, exponential, or quadratic." << endl;
+            // exit(0);
+            return reds;
         }
         residual = (y[i] - ypred) * (y[i] - ypred);
         if (isinf(residual)) {
@@ -324,7 +325,7 @@ std::vector<std::vector<double>> precompute_ssr_mat(Rcpp::IntegerVector x, Rcpp:
 // [[Rcpp::export]]
 Rcpp::List get_breakpoints(Rcpp::IntegerVector x, Rcpp::NumericVector y, int n_bp, std::string fit_type, int min_len, std::vector<std::vector<double>> ssr_mat) {
     if (ssr_mat.empty()) {
-        cout << "SSR matrix is not properly set. Set ssr_mat or call precomputeSSRMat before calling get_breakpoints." << endl;
+        cout << "The SSR matrix is not properly set. Set ssr_mat or call precomputeSSRMat before calling get_breakpoints." << endl;
         return Rcpp::List::create();
     }
     else if (n_bp < 1) {

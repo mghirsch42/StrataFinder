@@ -1,11 +1,19 @@
 ---
-title: "StrataFinder"
+title: "StrataFinder: Identifying breakpoints between evolutionary strata from divergence statistics"
+author: "MG Hirsch"
 output: rmarkdown::html_vignette
+bibliography: "bibliography.bibtex"
 vignette: >
   %\VignetteIndexEntry{StrataFinder}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
+
+StrataFinder is a package to identify breakpoints between evolutionary strata from divergence data. To do this, StrataFinder uses dynamic programming to identify the breakpoints that minimize the sum squared residuals between the data and a chosen function across all segments created by the breakpoints. Four functions are included to fit the data: flat (linear fit with zero slope), linear, exponential, and quadratic.
+
+StrataFinder follows the dynamic programming algorithm presented by [@bai1998estimating, @bai2003computation]. It operates in two steps. First, a look up table with the mean squared errors for all possible segments is created. Second, the set of breakpoints that minimize the total mean squared error are identified.
+
+This vignette provides an overview of the functions implemented in StrataFinder and how to use them.
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -16,61 +24,153 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(StrataFinder)
+library(ggplot2)
+library(patchwork)
 ```
 
-# Load data
-First, let's load some sample data. We will use data from Interochromis loock linkage group 5.
-This data has F_{ST} counts for 36,170,306 base pairs. Counts for each 100,000 base pairs are grouped together.
+## Load data
+
+First, let's load some sample data. In this example, 500 data points were generated. Four breakpoints were placed at random locations. The function for each segment is flat with a random mean and Gaussian noise.
+
+The true breakpoints occur at 240, 293, 490.
 
 ```{r}
-Load the data
-data(example_data, package = "StrataFinder")
-# df <- read.table("data/Interochromis_loock_LG5.txt", sep="\t")
-head(example_data)
+data_path <- system.file("extdata", "sim1_3.csv",  package="StrataFinder")
+df <- read.csv(data_path)
+head(df)
+ggplot() + geom_point(data=df, aes(x=x, y=y), size=0.5) +
+           geom_vline(xintercept=c(240, 293, 490), color="blue")
+
 ```
 
-In order to predict the break points, we will use the index (base pair starting location divided by 100,000) as our $x$ values and the count as our $y$ values.
+## Estimate breakpoints using StrataFinder
 
-```{r}
-# x <- as.integer(rownames(df))
-# y <- as.integer(df$V4)
-```
-
-# Estimate breakpoints
-
-Create a new StrataFinder object.
+First, we need to create a new StrataFinder object.
 
 ```{r}
 sf <- new("StrataFinder")
 ```
 
-To estimate the breakpoints, you will need to input the type of function you want to fit (either linear or exponential)
-and the minimum length each segment can be. Here, we will fit a linear function with a minimum length of 10.
+Two parameters are required to estimate the breakpoint locations: the function you want to fit to each segment (current options are flat, linear, exponential, or quadratic) and the minimum segment length (how close together the breakpoints can be). You set these parameters by assigning values to the ```fit_type``` and ```min_len`` variables of the StrataFinder object.
+
+Here, we will fit a linear function with a minimum segment length of 5.
 
 ```{r}
-fit_type <- "linear"
-min_len = 10
+sf$fit_type <- "linear"
+sf$min_len = 5
 ```
 
-If you already know how many breakpoints you need and would just like to estimate their location, you can use the findNStrata method.
+Next, we give the StrataFinder object the data to fit by assigning vectors to the ```x``` and ```y``` variables.
+
 ```{r}
-n_bp <- 2
-# sf$findNStrata(x, y, n_bp, fit_type, min_len)
+sf$x <- df$x
+sf$y <- df$y
 ```
 
-If you don't know how many breakpoints you need, you can estimate both the number of breakpoints and their locations using the findStrata method.
+The first step of StrataFinder is to calculate the sum squared residuals matrix. For each possible segment, this step calculates the parameters of the fit function that minimizes the sum squared residuals and stores that value in a lookup table (```ssr_mat```).
+
+The sum squared residuals for $n$ data points with values $(x_i, y_i)$ and optimal function values $\hat{y}_i$ for $i \in [1, n]$ is:
+$$
+\sum_{i=1}^{n} (y_i-\hat{y}_i)^2
+$$
+The ```precomputeSSRmat``` function calculates and saves the sum squared residual matrix lookup table. *This function must be rerun any time the fit type or minimum segment length is changed. You do not need to rerun this when changing the number of breakpoints to predict or the statistical test to use.*
+
+```{r}
+sf$precomputeSSRMat()
+```
+
+
+If you already know how many breakpoints you need and would just like to estimate their location, you can use the ```findNStrata``` method.
+
+```{r}
+n_bp <- 4
+bps <- sf$findNBreakpoints(n_bp)
+```
+
+We can then plot the results, showing the predicted breakpoint locations as well as the equation fit for each segment. The ```plot``` function will plot the most recently estimated results.
+
+```{r}
+sf$plot()
+```
+
+
+If you don't know how many breakpoints you need, you can estimate both the number of breakpoints and their locations using the ```findBreakpoints``` method. StrataFinder determines the optimal number of breakpoints by statistically comparing the absolute values of the residuals between increasing number of breakpoints until the difference between the sets of residuals is not statistically significant. The statistical comparison can be: the p value of a t test between the residuals must be less than 0.05, the p value of an f test must be less than 0.05, the p values of either the t or f test must be less than 0.05, or the p values of both the t and f tests must be less than 0.05.
+
+The ```findBreakpoints``` method takes two required parameters: 
+
+- ```min_bps```: the minimum number of breakpoints to try
+
+- ```max_bps```, the maximum number of breakpoints to try
+
+It also has three optional parameters: 
+
+- ```test```: the type of statistical test to perform to compare the fits of varying numbers of breakpoints (options: "t", "f", "either", "both"; default="t")
+- ```early_stop```: whether or not to stop calculating breakpoint locations when the statistical test fails (boolean; default=TRUE)
+- ```quiet```: whether to suppress the printing of results of each calculation (boolean; default=FALSE)
+
+The ```findBreakpoints``` method will save the optimal number of breakpoints estimated.
+
 ```{r}
 min_bps <- 0
-max_bps <- 2
-# sf$findStrata(x, y, fit_type, min_len, min_bps, max_bps)
+max_bps <- 10
+test <- "t"
+early_stop <- TRUE
+bps <- sf$findBreakpoints(min_bps, max_bps, test, early_stop)
 ```
 
-There are two parts to the algorithm behind StrataFinder: estimating the sum squared residual matrix and identifying the breakpoints that minimize the total error.
-The methods findNStrata and findStrata will perform both steps.
-If you have a large dataset or will be testing multiple number of breakpoints you want to evaluate, you can precompute the sum squared residual matrix and input it into findStrata or findNStrata.
-This will reduce redundant computations and speed up run time.
+We can then plot the most recent results.
 
 ```{r}
-# ssr_mat <- sf$precomputeSSRMat(x, y, fit_type)
-# sf$findNStrata(x, y, n_bp, fit_type, min_len, ssr_mat)
+sf$plot()
+```
+
+---
+
+We can run another example with a dataset without flat fits and compare the results of StrataFinder when using different fit functions. We can also change the test type to an f test instead of a t test.
+
+```{r}
+data_path <- system.file("extdata", "sim4_1.csv",  package="StrataFinder")
+df <- read.csv(data_path)
+head(df)
+ggplot() + geom_point(data=df, aes(x=x, y=y), size=0.5) #+
+           #geom_vline(xintercept=c(240, 293, 490), color="blue")
+
+```
+
+```{r}
+sf <- new("StrataFinder")
+sf$min_len <- 5
+sf$x <- df$x
+sf$y <- df$y
+```
+
+Run with flat fits:
+
+```{r}
+sf$fit_type <- "flat"
+sf$precomputeSSRMat()
+#sf$findBreakpoints(min_bps = 0, max_bps = 10, early_stop=FALSE,test = "t")
+sf$findNBreakpoints(4)
+sf$plot(show_error=TRUE)
+```
+
+```{r}
+sf$fit_type <- "linear"
+sf$precomputeSSRMat()
+sf$findBreakpoints(min_bps = 0, max_bps = 10, test = "either")
+sf$plot()
+```
+
+```{r}
+sf$fit_type <- "exponential"
+sf$precomputeSSRMat()
+sf$findBreakpoints(min_bps = 0, max_bps = 10, test = "either")
+sf$plot(show_error=TRUE)
+```
+
+```{r}
+sf$fit_type <- "quadratic"
+sf$precomputeSSRMat()
+sf$findBreakpoints(min_bps = 0, max_bps = 10, test = "f")
+sf$plot()
 ```
